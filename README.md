@@ -1,2 +1,2 @@
 # big-data-algorithms
-Reposotory for course "Big Data Algorithms"
+Repository for course "Big Data Algorithms"
