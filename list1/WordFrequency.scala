@@ -76,7 +76,7 @@ class WordFrequency {
   }
 }
 
-object Task3 {
+object Task1 {
   def main(args: Array[String]): Unit = {
     var wordFreq = new WordFrequency()
 
