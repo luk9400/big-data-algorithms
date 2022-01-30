@@ -1,3 +1,5 @@
+import java.io._
+import scala.io.Source.fromFile
 import scala.io.Source.fromURL
 import scala.collection.mutable.Map
 import scala.collection.mutable.Set
@@ -15,14 +17,10 @@ object Crawler {
       links(page).add(m.group(1))
     }
 
-    // println(s"\n ${baseURL + page}")
-    // println(links(page) mkString "\n")
-
     if (iterations > 0) {
       if (links(page).size > 0) {
         val n = util.Random.nextInt(links(page).size)
 
-        // TODO: add trap prevention
         crawl(links(page).iterator.drop(n).next, iterations - 1)
       } else {
         return false
@@ -36,8 +34,42 @@ object Crawler {
       node: String,
       links: Map[String, Set[String]] = links
   ): Array[String] = {
-    links.foldLeft(Array[String]())((acc, entry) =>
-      if (entry._2.contains(node)) acc :+ entry._1 else acc
+    links
+      .map(entry => if (entry._2.contains(node)) entry._1 else "")
+      .toArray
+      .filter(item => item != "")
+  }
+
+  def toFile(links: Map[String, Set[String]]): Unit = {
+    val writer = new PrintWriter(new File(s"crawled_pages_${links.size}.txt"))
+    links
+      .foldLeft(Array[Tuple2[String, String]]())((acc, item) =>
+        acc ++ item._2.map(elem => (item._1, elem))
+      )
+      .foreach(item => writer.write(s"${item._1} ${item._2}\n"))
+    writer.close()
+  }
+
+  def loadFile(filename: String): Map[String, Set[String]] = {
+    val links = Map[String, Set[String]]()
+
+    fromFile(filename)
+      .getLines()
+      .foreach(line => {
+        if (line.split("\\s+").length == 1) {
+          links(line.split("\\s+")(0)) = Set()
+        } else {
+          val Array(u, v) = line.split("\\s+")
+          if (links.contains(u)) {
+            links(u).add(v)
+          } else {
+            links(u) = Set(v)
+          }
+        }
+      })
+
+    return links.mapValuesInPlace((k, v) =>
+      v.filter(elem => links.contains(elem))
     )
   }
 
@@ -52,25 +84,34 @@ object Crawler {
         acc.addOne(item._1 -> 1.0 / links.size)
       )
 
-    println(ranks)
-
-    for (i <- 1 to iterations) {
+    for (i <- 0 until iterations) {
       for (node <- links.keys) {
         val pagerankSum =
           inNeighbours(node, links).map(k => ranks(k) / links(k).size).sum
 
-        ranks(node) = beta / links.size + (1 - beta) * pagerankSum
+        ranks(node) = (1 - beta) / links.size + beta * pagerankSum
       }
     }
 
     return ranks
+  }
 
+  def avgNumOfLinksPerPage(links: Map[String, Set[String]]): Int = {
+    links.map(item => item._2.size).sum / links.size
   }
 
   def main(args: Array[String]): Unit = {
-    crawl("PageRank", 10)
-    val ranks = pageRank(links)
-    println(ranks)
+    // CRAWL MODE
+    // crawl("PageRank", 10)
+    // toFile(links)
+
+    // PAGERANK MODE
+    val graph = loadFile("spider_trap.txt")
+    println(graph mkString "\n")
+    val ranks = pageRank(graph)
+    println("=== RESULTS ===:")
+    println(ranks.toSeq.sortBy(-_._2) mkString "\n")
+    println("=== PAGERANK SUM ===:")
     println(ranks.values.sum)
   }
 }
